@@ -25,6 +25,34 @@ ICatalogIntegrationService (solo si no se usa un bus de servicio dedicado)
 Este servicio almacena en un caché de Redis los productos del carrito de compras de cada usuario
 
 ## Modelo
+BasketCheckout
+ * string City
+ * string Street
+ * string State 
+ * string Country
+ * string ZipCode
+ * string CardNumber
+ * string CardHolderName
+ * DateTime CardExpiration
+ * string CardSecurityNumber
+ * int CardTypeId
+ * string Buyer
+ * Guid RequestId
+
+BasketItem
+ * string Id
+ * string ProductId
+ * string ProductName
+ * decimal UnitPrice
+ * decimal OldUnitPrice
+ * int Quantity 
+ * string PictureUrl
+ * Validate(): Valida que Quantity sea por lo menos 1
+
+CustomerBasket
+  * string BuyerId
+  * List<BasketItem> Items
+
 ## Repositorios
 IBasketRepository
   * Task<CustomerBasket> GetBasketAsync(string customerId);
