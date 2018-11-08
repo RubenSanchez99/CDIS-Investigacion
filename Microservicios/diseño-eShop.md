@@ -225,7 +225,18 @@ IntegrationEventHandler -> Método del Aggregate -> DomainEvent
 CommandHandler -> Métodod del Aggregate -> DomainEvent
 
 ## Modelo
-OrderAggregate
+### OrderAggregate
+Atributos
+  * private DateTime _orderDate
+  * public Address Address
+  * private _buyerId;
+  * public OrderStatus OrderStatus
+  * private string _description
+  * private bool _isDraft
+  * private List<OrderItems> _orderItems
+  * private Nullable<int> _paymentMethodId
+
+Métodos
   * Order
     * Inicializa los datos y publica el evento de dominio OrderStarted
   * AddOrderItem
@@ -251,7 +262,83 @@ OrderAggregate
   * AddOrderStartedDomainEvent
     * Publica el evento de dominio OrderStarted
 
-BuyerAggregate
+### OrderStatus
+Enum:
+  * 1: Submitted
+  * 2: AwaitingValidation
+  * 3: StockConfirmed
+  * 4: Paid
+  * 5: Shipped
+  * 6: Cancelled
+
+### Address
+Value Object
+
+Atributos:
+  * string Street
+  * string City
+  * string State
+  * string Country
+  * string ZipCode
+
+### OrderItem
+Entity
+
+Atributos:
+  * string _productName
+  * string _pictureUrl
+  * decimal _unitPrice
+  * decimal _discount
+  * int _units
+  * ProductId
+
+Metodos
+  * Constructor(int productId, string productName, decimal unitPrice, decimal discount, string PictureUrl, int units = 1)
+    * Lanza una OrderingDomainException si units es menor o igual a 0, con el mensaje "Invalid number of units"
+    * Lanza una OrderingDomainException si (unitPrice * units) es menor que discount, con el mensaje "The total of order item is lower than applied discount"
+  * SetNewDiscount(decimal discount)
+    * Lanza una OrderingDomainException si discount es menor que 0, con el mensaje "Discount is not valid"
+  * AddUnits(int units)
+    * Lanza una OrderingDomainException si units es menor que 0, con el mensaje "Invalid units"
+
+### BuyerAggregate
+Atributos
+  * string IdentityGuid
+  * string Name
+  * List<PaymentMethod> _paymentMethods
+
+Métodos
+  * Constructor (string identity, string name)
+    * Valida que identity y name no estén vacios
+  * PaymentMethod VerifyOrAddPaymentMethod(
+    int cardTypeId, string alias, string cardNumber, 
+    string securityNumber, string cardHolderName, DateTime expiration, int orderId)
+    * Si el Buyer tiene un PaymentMethod con los datos cardTypeId, cardNumber y expiration, se genera el evento de dominio BuyerAndPaymentMethodVerifiedDomainEvent
+    * Si el Buyer no tiene un PaymentMethod con esos datos, se crea uno nuevo y se agrega a la lista _paymentMethods. Se genera el evento de dominio BuyerAndPaymentMethodVerifiedDomainEvent
+
+### PaymentMethod
+Entity
+
+Atributos
+  * string _alias
+  * string _cardNumber
+  * string _securityNumber
+  * string _cardHolderName
+  * DateTime _expiration
+  * CardType CardType
+
+Métodos
+  * Constructor(int cardTypeId, string alias, string cardNumber, string securityNumber, string cardHolderName, DateTime expiration)
+    * Valida que cardNumber, securityNumber y cardHolderName no estén vacios
+    * Si la fecha expiration es menor a la fecha de hoy, se genera una OrderingDomainException
+  * bool IsEqualTo(int cardTypeId, string cardNumber,DateTime expiration)
+    * Valida que los datos de este PaymentMethod correspondan a los datos dados como parámetro
+
+### CardType
+Enum:
+  * 1: Amex
+  * 2: Visa
+  * 3: MasterCard
 
 ## Comandos
  - CancelOrder
@@ -262,6 +349,7 @@ BuyerAggregate
    * Handler: Crea una orden nueva, la convierte a un OrderDraftDTO y lo retorna
  - ShipOrder
    * Handler: Ejecuta el método SetShippedStatus de la orden
+
 ## Eventos de dominio
  - BuyerAndPaymentMethodVerified
  - OrderCancelled
@@ -270,6 +358,37 @@ BuyerAggregate
  - OrderShipped
  - OrderStarted
  - OrderStockConfirmed
+
+## Comportamientos de eventos de dominio
+BuyerAndPaymentMethodVerified
+  * UpdateOrderWhenBuyerAndPaymentMethodVerifiedDomainEventHandler (BuyerAggregate)
+    * When the Buyer and Buyer's payment method have been created or verified that they existed, then we can update the original Order with the BuyerId and PaymentId (foreign keys)
+
+OrderCancelled
+  * OrderCancelledDomainEventHandler Subscriber
+    * Publica el evento OrderStatusChangedToCancelledIntegrationEvent
+
+OrderGracePeriodConfirmed
+  * OrderStatusChangedToAwaitingValidationDomainEventHandler (Subscriber)
+    * Publica el evento OrderStatusChangedToAwaitingValidationIntegrationEvent
+
+OrderPaid
+  * OrderStatusChangedToPaidDomainEventHandler (Subscriber)
+    * Publica el evento de integración OrderStatusChangedToPaidIntegrationEvent
+
+OrderShipped
+  * OrderShippedDomainEventHandler (Subscriber)
+    * Publica el evento de integración OrderStatusChangedToShippedIntegrationEvent
+
+OrderStarted
+  * ValidateOrAddBuyerAggregateWhenOrderStartedDomainEventHandler (BuyerAggregate)
+    * Revisa si la orden ya tiene un Buyer asignado. Si no lo tiene, crea un nuevo Buyer con los datos del usuario recibidos en el evento. Si no había un Buyer con el id del usuario, lo agrega al repositorio. Si ya había uno con el id del usuario, lo actualiza.
+    * Ejecuta el método VerifyOrAddPaymentMethod del Buyer
+
+OrderStockConfirmed
+  * OrderStatusChangedToStockConfirmedDomainEventHandler
+    * Publica el evento de integración OrderStatusChangedToStockConfirmedIntegrationEvent
+
 ## Servicios de dominio
 ## Eventos de integración
 Eventos publicados por el servicio:
