@@ -247,7 +247,8 @@ Métodos
     * Valida que la orden esté en estatus Submitted y publica el evento de dominio OrderStatusChangedToAwaitingValidation
     * Cambia el estatus a AwaitingValidation
   * SetStockConfirmedStatus
-    * Valida que la orden esté en estatus AwaitingValidation y publica el evento de dominio OrderStatusChangedToStockConfirmed
+    * Valida que la orden esté en estatus AwaitingValida## Flujo principal
+  * Se recibe el comando tion y publica el evento de dominio OrderStatusChangedToStockConfirmed
     * Cambia el estatus a StockConfirmed
   * SetPaidStatus
     * Valida que la orden esté en estatus StockConfirmed y publica el evento de dominio OrderStatusChangedToPaid
@@ -412,9 +413,58 @@ Eventos a los que se suscribe:
     * Handler: Cambia el estatus de la orden a cancelado por falta de inventario.
   - UserCheckoutAccepted
     * Handler: Lanza el comando CreateOrder
+
+## Sagas
+### GracePeriod
+Cuando se crea una orden, se inicia un GracePeriod. El GracePeriod consiste en un periodo de tiempo donde se realiza la validación de existencia de inventario y el método de pago. 
+
+Datos de estado de la saga:
+  * int OrderIdentifier 
+  * string UserId 
+  * bool GracePeriodIsOver 
+  * bool StockConfirmed 
+
+La saga inicia cuando se publica el evento OrderStartedIntegrationEvent. Cuando se recibe ese evento, se iniciarán tres procesos asíncronamente:
+  * Iniciar el grace period (Dentro del servicio Ordering)
+  * Verificar el método de pago (Dentro del servicio Payments)
+  * Verificar existencias de inventario (Dentro del servicio Catalog)
+
+La saga publica el evento OrderStatusChangedToAwaitingValidationIntegrationEvent. El servicio Catalog está suscritos a ese evento. La saga también inicia un timeout, después del cual se publicará el evento GracePeriodExpired.
+
+Cuando se recibe el evento GracePeriodExpired, se cambia la propediad GracePeriodIsOver del estado de la saga a verdadero y se ejecuta el método privado ContinueOrderingProcess.
+
+El método ContinueOrderingProcess valida que los datos GracePeriodIsOver y StockConfirmed sean verdaderos. Si lo son, se pubica el evento OrderStatusChangedToStockConfirmedIntegrationEvent. El servico Payments está suscrito a ese evento.
+
+La saga espera dos eventos generados por el servicio Catalog después del evento OrderStatusChangedToAwaitingValidationIntegrationEvent:
+  * OrderStockConfirmedIntegrationEvent: Cambia el estatus StockConfirmed a verdadero
+  * OrderStockRejectedIntegrationEvent: Termina la saga
+
+La saga espera dos eventos generados por el servicio Payments después del evento OrderStatusChangedToStockConfirmedIntegrationEvent:
+  * OrderPaymentSuccededIntegrationEvent: Termina la saga
+  * OrderPaymentFailedIntegrationEvent: Termina la saga
+
+Si se recibe el evento OrderCancelledIntegrationEvent, la saga se termina.
+
 ## Consultas
+  * GetOrderAsync
+  * GetOrdersAsync
+  * GetCardTypesAsync
+
 ## Servicios
 ## API
+OrdersController
+  * PUT api/v1/orders/cancel CancelOrder
+    * Publica el comando CancelOrder
+  * PUT api/v1/orders/ship ShipOrder 
+    * Publica el comando ShipOrder
+  * POST api/v1/orders/draft GetOrderDraftFromBasketData
+    * Ejecuta el comando CreateOrderDraft
+  * GET api/v1/orders/{orderId} GetOrder
+    * Ejecuta el query GetOrderAsync
+  * GET api/v1/orders GetOrders
+    * Ejecuta el query GetOrdersAsync
+  * GET api/v1/orders/cardtypes GetCardTypes
+    * Ejecuta el query GetCardTypesAsync
 
 # Servicio Payment
 ## Descripción
