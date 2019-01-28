@@ -1,209 +1,84 @@
-# Capacitación Microservicios: Servicio de catálogo
+# Capacitación Microservicios: Módulo 1 - Controlador de la API
 
-## Publish con Docker
+El [controlador de la API](https://docs.microsoft.com/en-us/aspnet/core/web-api/?view=aspnetcore-2.1) define las rutas que aceptará el microservicio.
 
-Los servicios del proyecto se correrán mediante contenedores. Usaremos Docker para crear los contenedores de cada servicio.
+Los controladores van en la carpeta Controllers. Cuando usamos un proyecto Web API, el controller hereda de la clase ControllerBase.
 
-El primer paso para generar un contenedor de Docker es definir el Dockerfile del servicio. Este archivo especifica los pasos para generar el contenedor.
+El atributo Route define la ruta que aceptará el controlador. En este caso, la ruta base será "api/v1/catalog".
 
-Cree el siguiente archivo en la raíz del proyecto.
+Para definir qué rutas aceptará este controlador, creamos un ActionMethod que responda a una consulta. El atributo HttpGet significa que este ActionMethod responderá a peticiones GET con la ruta especificada en Route. En este ejemplo, el ActionMethod responderá a peticiones GET con la ruta api/v1/catalog/items.
 
-#### Dockerfile
+El ActionMethod retorna un [ActionResult](https://docs.microsoft.com/en-us/aspnet/core/web-api/action-return-types?view=aspnetcore-2.2), que es un objeto que encapsula la respuesta de la petición con un código de respuesta de HTTP. En este ejemplo, la línea ```return Ok(model)``` significa que se va a retornar una el objeto model (que es de tipo PaginatedItemsViewModel\<CatalogItem>) con un código de respuesta 200 OK.
 
-```dockerfile
-FROM microsoft/dotnet:sdk AS build-env
-WORKDIR /app
+Este ActionMethod se define como un método [async](https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/async/). Los métodos async realizan operaciones asíncronas en su interior. Un método async retorna un Task, que es una representación de una tarea asíncrona. Para ejecutar la acción asíncronamente, se usa el comando ```await```. El comando await se usa al ejecutar un método que retorne un Task y hace que retorne el objeto que encapsula, una vez que termine su ejecución.
 
-# Copy csproj and restore as distinct layers
-COPY *.csproj ./
-RUN dotnet restore
+Los datos que recibe el ActionMethod se configuran como parámetros. Las etiquetas \[FromX] definen de donde se sacarán los datos.
 
-# Copy everything else and build
-COPY . ./
-RUN dotnet publish -c Release -o out
+* \[FromBody], del cuerpo de la petición (generalmente en JSON)
+* \[FromForm], de un POST de un form de HTML
+* \[FromHeader], de los headers de la petición
+* \[FromQuery], del querystring de la petición (las variables que vienen con formato "?key=value en la dirección de la petición)
 
-# Build runtime image
-FROM microsoft/dotnet:aspnetcore-runtime
-WORKDIR /app
-COPY --from=build-env /app/out .
-ENTRYPOINT ["dotnet", "Catalog.API.dll"]
-```
+Las consultas se hacen sobre la clase CatalogContext, que se obtiene mediante inyección de dependencias. Se usa [LINQ to Entities](https://docs.microsoft.com/en-us/dotnet/csharp/tutorials/working-with-linq) para hacer las consultas hacia la base de datos.
 
-En la terminal, dirígase a la carpeta donde está el Dockerfile y ejecute los siguientes comandos en la terminal
-
-```
-sudo usermod -aG docker $USER
-sudo systemctl enable docker
-docker build -t cdis-capacitacion/catalog.api .
-```
-
-El primer comando agrega al usuario al grupo docker, lo que le perimite ejecutar comandos de Docker sin usar sudo.
-
-El segundo comando habilita el servicio de Docker y lo ejecuta cuando se inicie el sistema operativo.
-
-El tercer comando compila la imagen del servicio de catálogo y le pone el nombre de 'cdis-capacitacion/catalog.api'.
-
-La primera vez que se ejecute el comando 'docker-build', Docker buscará las imagenes del runtime y el SDK de .NET Core. Al no encontrarlas, las descargará del Docker Hub, un repositorio de imágenes de Docker. Por esta razón, el proceso de compilación tarda un poco más al principio.
-
-Para reducir el tamaño del contexto de compilación, podemos agregar un archivo .dockerignore en la misma ubicaicón que el Dockerfile.
-
-#### .dockerignore
-```
-bin\
-obj\
-```
-
-## Base de datos y servicio de mensajería
-
-El servicio de catalogo depende de dos servicios adicionales:
- * Un servidor de SQL Server
- * Un servidor de RabbitMQ
-
-Podemos acceder a estos servicios creando contenedores a partir de sus imágenes del Docker Hub.
-
-Sus respectivas imágenes en el Docker Hub son:
- * microsoft/mssql-server-linux:2017-latest
- * rabbitmq:3-management
-
-Podemos iniciar esas imágnes manualmente, pero el proceso se puede automatizar usando una herramienta llamada Docker Compose.
-
-Docker Compose nos permite definir la forma en la que se crearán los diferentes contenedores de nuestra aplicación. Es muy útil cuando tenemos servicios que dependen de otros servicios, porque nos permite definir el orden en el que deben levantarse.
-
-Para usar Docker Compose, creamos un archivo docker-compose.yml en la raíz de la solución.
-
-#### docker-compose.yml
-```yml
-version: '3.7'
-
-services:
-
-  sql.data:
-    image: microsoft/mssql-server-linux:2017-latest
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    ports:
-      - "15672:15672"
-      - "5672:5672"
-
-  catalog.api:
-    image: cdis-capacitacion/catalog.api
-    build:
-      context: ./src/Services/Catalog/Catalog.API
-      dockerfile: Dockerfile 
-    restart: on-failure   
-    depends_on:
-      - sql.data
-      - rabbitmq
-```
-
-El archivo define los tres servicios que conforman nuestra aplicación. La propiedad image especifica el nombre de la imagen del servicio (Especificamos el nombre de la imagen del servicio de catalogo con el atributo '-t' del comando 'docker build -t cdis-capacitacion/catalog.api .'). 
-
-También se definen los puertos de a los que corresponde cada servicio. El primer número especifica el puerto del host que expondrá el servicio, mientras que el segundo número especifica el puerto definido por el servidor dentro del contenedor. Al hacer una petición al puerto definido por el primer número, Docker redirigirá el mensaje al puerto correspondiente dentro del contenedor. Esto evita el choque de puertos que ocurriría al tener varias instancias de un mismo servidor.
-
-El archivo docker-compose.override.yml define las variables de entorno para cada servicio. También nos permite crear configuraciones para diferentes entornos (podemos, por ejemplo, crear un archivo docker-compose.test.yml y otro docker-compose.prod.yml).
-
-#### docker-compose.override.yml
-```yml
-version: '3.7'
-
-services:
-
-  sql.data:
-    environment:
-      - MSSQL_SA_PASSWORD=Pass@word
-      - ACCEPT_EULA=Y
-      - MSSQL_PID=Developer
-    ports:
-      - "5433:1433"
-
-  catalog.api:
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://0.0.0.0:80
-      - ConnectionString=${ESHOP_AZURE_CATALOG_DB:-Server=tcp:sql.data;Initial Catalog=CapacitacionMicroservicios.CatalogDb;User Id=sa;Password=Pass@word}
-      - EventBusConnection=${ESHOP_AZURE_SERVICE_BUS:-rabbitmq}
-      - EventBusUserName=guest
-      - EventBusPassword=guest        
-      - UseCustomizationData=True
-    ports:
-      - "5101:80"
-```
-
-Para levantar los servicios, ejecute el siguiente comando en la carpeta donde se ubica el archivo docker-compose.yml
-
-```bash
-docker-compose up
-```
-
-El comando descargará las imagenes y levantará los servicios con la configuración dada.
-
-Antes de probar la aplicación, es necesario actualizar la base de datos para que corresponda al modelo que definirmos. En una terminal separada, ejecute el siguiente comando en la carpeta donde se ubica el archivo .csproj.
-
-```bash
-dotnet ef database update
-```
-
-O podemos agregar esta línea de código al método Configure de Startup.cs. Esto hace que la base de datos se actualice cuando inicia la aplicación.
-
-#### Startup.cs
-```diff
--   public void Configure(IApplicationBuilder app, IHostingEnvironment env)
-+   public void Configure(IApplicationBuilder app, IHostingEnvironment env, CatalogContext db)
+```csharp
+namespace Catalog.API.Controllers
+{
+    [Route("api/v1/[controller]")]
+    public class CatalogController : ControllerBase
+    {
+        // GET api/v1/[controller]/items[?pageSize=3&pageIndex=10]
+        [HttpGet]
+        [Route("[action]")]
+        public async Task<IActionResult> Items([FromQuery]int pageSize = 10, [FromQuery]int pageIndex = 0)
         {
-            // ...
+            var totalItems = await _catalogContext.CatalogItems
+                .LongCountAsync();
 
-+           db.Database.Migrate();
+            var itemsOnPage = await _catalogContext.CatalogItems
+                .OrderBy(c => c.Name)
+                .Skip(pageSize * pageIndex)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var model = new PaginatedItemsViewModel<CatalogItem>(
+                pageIndex, pageSize, totalItems, itemsOnPage);
+
+            return Ok(model);
+        }
+    }
+}
+```
+
+Para agregar registros a las tablas, se accede a la propiedad del CatalogContext que corresponde a la entidad a agregar (en este caso, CatalogItems) y se usa el método Add. Los cambios a registros de las tablas no se efectúan hasta que se ejecuta el método SaveChangesAsync() (o su versión síncrona, SaveChanges()).
+
+```csharp
+        //POST api/v1/[controller]/items
+        [Route("items")]
+        [HttpPost]
+        public async Task<IActionResult> CreateProduct([FromBody]CatalogItem product)
+        {
+            var item = new CatalogItem
+            {
+                CatalogBrandId = product.CatalogBrandId,
+                CatalogTypeId = product.CatalogTypeId,
+                Description = product.Description,
+                Name = product.Name,
+                Price = product.Price
+            };
+            _catalogContext.CatalogItems.Add(item);
+
+            await _catalogContext.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetItemById), new { id = item.Id }, null);
         }
 ```
 
-Si ocurre un error, es posible que haya una discrepancia en los connection strings.
+## Ejercicio
 
-Podemos usar una interfaz gráfica para ver que las tablas se hayan creado correctamente. Una opción es usar DBeaver. Este programa es similar al SQL Server Management Studio o al MySQL Workbench. Nos permite manipular visualmente nuestra base de datos.
+Crear CatalogController y agregar los siguientes métodos:
 
-Abra DBeaver y agregue una nueva conexión.
-
-![](img/part7/dbeaver-driver.png)
-
-![](img/part7/dbeaver-driver.png)
-
-![](img/part7/dbeaver-driver-download.png)
-
-![](img/part7/dbeaver-config.png)
-
-![](img/part7/dbeaver-connectiontest.png)
-
-Podemos ver que se creó la base de datos CapacitacionMicroservicios.CatalogDb, como lo especificamos en el contexto.
-
-![](img/part7/dbeaver-db.png)
-
-Ejecutamos algunos querys con datos de prueba para las tablas CatalogBrand y CatalogType
-
-```sql
-INSERT INTO [CapacitacionMicroservicios.CatalogDb].dbo.CatalogBrand
-(Id, Brand)
-VALUES(0, 'DC Comics');
-```
-
-![](img/part7/query-execute.png)
-
-![](img/part7/query-catalogitem-result.png)
-
-```sql
-INSERT INTO [CapacitacionMicroservicios.CatalogDb].dbo.CatalogType
-(Id, [Type])
-VALUES(0, 'Clothing');
-```
-
-![](img/part7/query-catalogtype.png)
-
-![](img/part7/query-catalogtype-results.png)
-
-## Material extra
- * [Docker Documentation](https://docs.docker.com/)
- * https://hub.docker.com/r/microsoft/dotnet/
- * https://github.com/dotnet/dotnet-docker/blob/master/samples/aspnetapp/README.md
- * https://github.com/dotnet/dotnet-docker/blob/master/samples/dotnetapp/README.md
- * https://github.com/phusion/baseimage-docker
- * https://hub.docker.com/r/microsoft/mssql-server-linux/
- * https://stackoverflow.com/questions/45712122/connection-string-for-sqlserver-in-docker-container
+* Items: Acepta la ruta "GET api/v1/[controller]/items[?pageSize=3&pageIndex=10]" y retorna todos los CatalogItems de la base de datos en un PaginatedItemsViewModel. Usar los valores de pageSize y pageIndex para paginado.
+* CreateProduct: Acepta la ruta "POST api/v1/[controller]/items" y un \[FromBody]CatalogItem. Agrega un CatalogItem a la base de datos.
+* UpdateProduct: Acepta la ruta "PUT api/v1/[controller]/items" y un \[FromBody]CatalogItem. Actualiza un CatalogItem. Retorna un NotFound si se envía un Id inexistente.
+* DeleteProduct: Acepta la ruta "DELETE api/v1/[controller]/id". Elimina el CatalogItem dado como parámetro.

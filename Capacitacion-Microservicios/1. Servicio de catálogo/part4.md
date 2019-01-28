@@ -1,190 +1,18 @@
 # Capacitación Microservicios: Servicio de catálogo
 
 ## Modelo y EF Core
-El primer paso es crear las clases que compondrán el modelo de este servicio.
 
-Usaremos el flujo Code-First de Entity Framework Core, donde creamos nuestro modelo mediante clases de C#, y el framework genera tablas con las columnas correspondientes.
+El primer paso es agregar las librerías de Entity Framework Core al proyecto del microservicio.
 
-Cree una carpeta Model y agregue los siguientes archivos.
-
-![](img/part4/new-folder.png)
-
-Para crear una carpeta, haz clic derecho sobre la carpeta donde se desea crear la nueva carpeta y escoga la opción 'New Folder'.
-
-Para agregar una clase, haga clic derecho sobre la carpeta donde desea crear el archivo y escoga la opción 'New C# Class' (La opción solo se encuentra disponible si se instaló la extensión 'C# Extensions').
-
-![](img/part4/new-class.png)
-
-![](img/part4/new-class-name.png)
-
-#### Model/CatalogBrand.cs
-```csharp
-namespace Catalog.API.Model
-{
-    public class CatalogBrand
-    {
-        public int Id { get; set; }
-
-        public string Brand { get; set; }
-    }
-}
-```
-
-#### Model/CatalogType.cs
-```csharp
-namespace Catalog.API.Model
-{
-    public class CatalogType
-    {
-        public int Id { get; set; }
-
-        public string Type { get; set; }
-    }
-}
-```
-
-#### Model/CatalogItem.cs
-```csharp
-using System;
-using Catalog.API.Infrastucture.Exceptions;
-
-namespace Catalog.API.Model
-{
-    public class CatalogItem
-    {
-        public int Id { get; set; }
-
-        public string Name { get; set; }
-
-        public string Description { get; set; }
-
-        public decimal Price { get; set; }
-
-        public string PictureFileName { get; set; }
-
-        public string PictureUri { get; set; }
-
-        public int CatalogTypeId { get; set; }
-
-        public CatalogType CatalogType { get; set; }
-
-        public int CatalogBrandId { get; set; }
-
-        public CatalogBrand CatalogBrand { get; set; }
-
-        // Quantity in stock
-        public int AvailableStock { get; set; }
-
-        // Available stock at which we should reorder
-        public int RestockThreshold { get; set; }
-
-
-        // Maximum number of units that can be in-stock at any time (due to physicial/logistical constraints in warehouses)
-        public int MaxStockThreshold { get; set; }
-
-        /// <summary>
-        /// True if item is on reorder
-        /// </summary>
-        public bool OnReorder { get; set; }
-
-        public CatalogItem() { }
-
-
-        /// <summary>
-        /// Decrements the quantity of a particular item in inventory and ensures the restockThreshold hasn't
-        /// been breached. If so, a RestockRequest is generated in CheckThreshold. 
-        /// 
-        /// If there is sufficient stock of an item, then the integer returned at the end of this call should be the same as quantityDesired. 
-        /// In the event that there is not sufficient stock available, the method will remove whatever stock is available and return that quantity to the client.
-        /// In this case, it is the responsibility of the client to determine if the amount that is returned is the same as quantityDesired.
-        /// It is invalid to pass in a negative number. 
-        /// </summary>
-        /// <param name="quantityDesired"></param>
-        /// <returns>int: Returns the number actually removed from stock. </returns>
-        /// 
-        public int RemoveStock(int quantityDesired)
-        {
-            if (AvailableStock == 0)
-            {
-                throw new CatalogDomainException($"Empty stock, product item {Name} is sold out");
-            }
-
-            if (quantityDesired <= 0)
-            {
-                throw new CatalogDomainException($"Item units desired should be greater than cero");
-            }
-
-            int removed = Math.Min(quantityDesired, this.AvailableStock);
-
-            this.AvailableStock -= removed;
-
-            return removed;
-        }
-
-        /// <summary>
-        /// Increments the quantity of a particular item in inventory.
-        /// <param name="quantity"></param>
-        /// <returns>int: Returns the quantity that has been added to stock</returns>
-        /// </summary>
-        public int AddStock(int quantity)
-        {
-            int original = this.AvailableStock;
-
-            // The quantity that the client is trying to add to stock is greater than what can be physically accommodated in the Warehouse
-            if ((this.AvailableStock + quantity) > this.MaxStockThreshold)
-            {
-                // For now, this method only adds new units up maximum stock threshold. In an expanded version of this application, we
-                //could include tracking for the remaining units and store information about overstock elsewhere. 
-                this.AvailableStock += (this.MaxStockThreshold - this.AvailableStock);
-            }
-            else
-            {
-                this.AvailableStock += quantity;
-            }
-
-            this.OnReorder = false;
-
-            return this.AvailableStock - original;
-        }
-    }
-}
-```
-
-La clase CatalogType utiliza una excepción creada por el usuario para notificar cuando ocurre un error relacionado a las reglas de negocio. Lanza la excepción cuando se intenta sacar producto del almacén sin que haya existencias o si se intenta sacar una cantidad menor a una unidad.
-
-Añadimos esta excepción a la carpeta Exceptions.
-
-#### Infrastucture/Exceptions/CatalogDomainException.cs
-```csharp
-using System;
-
-namespace Catalog.API.Infrastucture.Exceptions
-{
-    public class CatalogDomainException : Exception
-    {
-        public CatalogDomainException()
-        { }
-
-        public CatalogDomainException(string message)
-            : base(message)
-        { }
-
-        public CatalogDomainException(string message, Exception innerException)
-            : base(message, innerException)
-        { }
-    }
-}
-```
 
 Entity Framework Core es un ORM que nos permite mapear las claes creadas en nuestro modelo a tablas de una base de datos relacional. EF Core se instala como un paquete NuGet.
 
-Para instalar un paquete NuGet podemos usar los siguientes comandos dentro de la carpeta del proyecto. 
+EF Core nos permite elegir qué base de datos relacional usar. En los microservicios que hagan uso de una base de datos relacional, usaremos PostgreSQL.
+
+Para instalar un paquete NuGet podemos usar los siguientes comandos dentro de la carpeta del proyecto.
 
 ```
-dotnet add package Microsoft.EntityFrameworkCore.SqlServer
-dotnet add package Microsoft.EntityFrameworkCore.Tools
-dotnet add package Microsoft.EntityFrameworkCore.SqlServer.Design
-dotnet add package Microsoft.EntityFrameworkCore.Design
+dotnet add package Npgsql.EntityFrameworkCore.PostgreSQL
 ```
 
 O podemos usar la extensión NuGet Package Manager para instalar las dependencias mediante la paleta de comandos.
@@ -210,6 +38,7 @@ Elegimos la versión estable más reciente.
 También es necesario agregar unas utilidades de línea de comandos que nos servirán al momento de crear migraciones del modelo de base de datos.
 
 Abra el archivo .csproj y agregue el siguiente ItemGroup
+
 ```xml
 <ItemGroup>
     <DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="2.0.3" />
@@ -219,7 +48,6 @@ Abra el archivo .csproj y agregue el siguiente ItemGroup
 
 Nuestro archivo .csproj debe quedar de la siguiente manera.
 
-#### Catalog.csproj
 ```xml
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
@@ -233,10 +61,7 @@ Nuestro archivo .csproj debe quedar de la siguiente manera.
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.App"/>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="2.1.3"/>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="2.1.3"/>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer.Design" Version="1.1.6"/>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="2.1.3"/>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="2.1.2" />
   </ItemGroup>
 
   <ItemGroup>
@@ -253,11 +78,38 @@ Después de agregar las librerías, aparecerá el siguiente mensaje en VS Code.
 
 Al presionar Restore, .NET va a descargar las liberías que hemos agregado al proyecto. Este paso es necesario cada vez que agregamos liberías nuevas. Este paso también se realizará automáticamente al momento de compilar, de ser necesario.
 
-Para usar EF Core en nuestro servicio, se necesita crear una clase context. Esta clase representa nuestra conexión con la base de datos. En ella se agregarán los DbSet que representan cada tabla del modelo.
+El siguiente paso es crear las clases que compondrán el modelo de este servicio.
 
-Para configurar la manera en la que se configurarán las tablas de cada entidad, se usan clases Entity Configuration. Cree una carpeta EntityConfigurations en Infrastucture y cree las siguientes clases.
+Usaremos el flujo Code-First de Entity Framework Core, donde creamos nuestro modelo mediante clases de C#, y el framework genera tablas con las columnas correspondientes.
 
-#### Infrastucture/EntityConfigurations/CatalogBrandEntityTypeConfiguration.cs
+Cree una carpeta con el nombre "Model".
+
+![](img/part4/new-folder.png)
+
+Para crear una carpeta, haz clic derecho sobre la carpeta donde se desea crear la nueva carpeta y escoga la opción 'New Folder'.
+
+Para agregar una clase, haga clic derecho sobre la carpeta donde desea crear el archivo y escoga la opción 'New C# Class' (La opción solo se encuentra disponible si se instaló la extensión 'C# Extensions').
+
+![](img/part4/new-class.png)
+
+![](img/part4/new-class-name.png)
+
+Una clase de modelo de Entity Framework Core no requiere herencia ni implementar ninguna interfaz, solo necesita las propiedades que tendrá la entidad.
+
+```csharp
+namespace Catalog.API.Model
+{
+    public class CatalogBrand
+    {
+        public int Id { get; set; }
+
+        public string Brand { get; set; }
+    }
+}
+```
+
+Podemos agregar una clase de configuración, que define cómo se construirá la tabla en la base de datos.
+
 ```csharp
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -274,10 +126,6 @@ namespace Catalog.API.Infrastructure.EntityConfigurations
 
             builder.HasKey(ci => ci.Id);
 
-            builder.Property(ci => ci.Id)
-               .ForSqlServerUseSequenceHiLo("catalog_brand_hilo")
-               .IsRequired();
-
             builder.Property(cb => cb.Brand)
                 .IsRequired()
                 .HasMaxLength(100);
@@ -286,81 +134,8 @@ namespace Catalog.API.Infrastructure.EntityConfigurations
 }
 ```
 
-#### Infrastucture/EntityConfigurations/CatalogItemEntityTypeConfiguration.cs
-```csharp
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Catalog.API.Model;
+Para usar EF Core en nuestro proyecto, se debe crear una clase DbContext. Esta clase representa nuestra conexión con la base de datos.
 
-namespace Catalog.API.Infrastructure.EntityConfigurations
-{
-    class CatalogItemEntityTypeConfiguration
-        : IEntityTypeConfiguration<CatalogItem>
-    {
-        public void Configure(EntityTypeBuilder<CatalogItem> builder)
-        {
-            builder.ToTable("Catalog");
-
-            builder.Property(ci => ci.Id)
-                .ForSqlServerUseSequenceHiLo("catalog_hilo")
-                .IsRequired();
-
-            builder.Property(ci => ci.Name)
-                .IsRequired(true)
-                .HasMaxLength(50);
-
-            builder.Property(ci => ci.Price)
-                .IsRequired(true);
-
-            builder.Property(ci => ci.PictureFileName)
-                .IsRequired(false);
-
-            builder.Ignore(ci => ci.PictureUri);
-
-            builder.HasOne(ci => ci.CatalogBrand)
-                .WithMany()
-                .HasForeignKey(ci => ci.CatalogBrandId);
-
-            builder.HasOne(ci => ci.CatalogType)
-                .WithMany()
-                .HasForeignKey(ci => ci.CatalogTypeId);
-        }
-    }
-}
-```
-
-#### Infrastucture/EntityConfigurations/CatalogTypeEntityTypeConfiguration.cs
-```csharp
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Catalog.API.Model;
-
-namespace Catalog.API.Infrastructure.EntityConfigurations
-{
-    class CatalogTypeEntityTypeConfiguration
-        : IEntityTypeConfiguration<CatalogType>
-    {
-        public void Configure(EntityTypeBuilder<CatalogType> builder)
-        {
-            builder.ToTable("CatalogType");
-
-            builder.HasKey(ci => ci.Id);
-
-            builder.Property(ci => ci.Id)
-               .ForSqlServerUseSequenceHiLo("catalog_type_hilo")
-               .IsRequired();
-
-            builder.Property(cb => cb.Type)
-                .IsRequired()
-                .HasMaxLength(100);
-        }
-    }
-}
-```
-
-Cree la clase context dentro de la carpeta Infrastructure.
-
-#### Infrastucture/CatalogContext.cs
 ```csharp
 namespace Catalog.API.Infrastructure
 {
@@ -374,82 +149,42 @@ namespace Catalog.API.Infrastructure
         public CatalogContext(DbContextOptions<CatalogContext> options) : base(options)
         {
         }
-        public DbSet<CatalogItem> CatalogItems { get; set; }
+
+        // Agregamos un DbSet de la clase del modelo. Asignamos un nombre para la entidad.
         public DbSet<CatalogBrand> CatalogBrands { get; set; }
-        public DbSet<CatalogType> CatalogTypes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
+            // Agregamos la clase de configuración de entidad
             builder.ApplyConfiguration(new CatalogBrandEntityTypeConfiguration());
-            builder.ApplyConfiguration(new CatalogTypeEntityTypeConfiguration());
-            builder.ApplyConfiguration(new CatalogItemEntityTypeConfiguration());
-        }     
-    }
-
-
-    public class CatalogContextDesignFactory : IDesignTimeDbContextFactory<CatalogContext>
-    {
-        public CatalogContext CreateDbContext(string[] args)
-        {
-            var optionsBuilder =  new DbContextOptionsBuilder<CatalogContext>()
-                .UseSqlServer("Server=tcp:127.0.0.1,5433;Initial Catalog=CapacitacionMicroservicios.CatalogDb;User Id=sa;Password=Pass@word");
-
-            return new CatalogContext(optionsBuilder.Options);
         }
     }
 }
 ```
 
-En el archivo appsettings.json se configurará el ConnectionString para la conexión con la base de datos.
+Las configuraciones de las librerías que usamos en un proyecto de .NET Core se definen en la clase Startup. En el método ConfigureServices se configuran los servicios que proveen de la funcionalidad de las librerías agregadas, de modo que sean accesibles en las clases del proyecto (generalmente, mediante inyección de dependencias).
 
-#### appsettings.json
+El método UseNpgsql es el que agrega una conexión con una base de datos de Postgres. Este método recibe como primer argumento el string de conexión para la base de datos. El segundo argumento es un método lambda donde se realiza configuración de la conexión con la base de datos.
 
-
-```json
-{
-  "ConnectionString": "Server=tcp:127.0.0.1,5433;Initial Catalog=CapacitacionMicroservicios.CatalogDb;User Id=sa;Password=Pass@word",
-  "Logging": {
-    "IncludeScopes": false,
-    "LogLevel": {
-      "Default": "Debug",
-      "System": "Information",
-      "Microsoft": "Information"
-    }
-  },
-  "AllowedHosts": "*"
-}
-
-```
-
-El archivo Startup.cs contiene las conciguraciones de los servicios y librerías que se usan en el proyecto.
-
-#### Startup.cs
 ```csharp
-// ...
-
-// Para EF Core
-using Catalog.API.Infrastucture;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using System.Reflection;
-
 namespace Catalog.API
 {
     public class Startup
     {
-        public void ConfigureServices(IServiceCollection services)
+        public IServiceProvider ConfigureServices(IServiceCollection services)
         {
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
 
             // Para EF Core
-            services.AddDbContext<CatalogContext>(options =>
+            services.AddEntityFrameworkNpgsql()
+                .AddDbContext<CatalogContext>(options =>
             {
-                options.UseSqlServer(Configuration["ConnectionString"],
-                                     sqlServerOptionsAction: sqlOptions =>
+                options.UseNpgsql(Configuration["ConnectionString"],
+                                     npgsqlOptionsAction: sqlOptions =>
                                      {
                                          sqlOptions.MigrationsAssembly(typeof(Startup).GetTypeInfo().Assembly.GetName().Name);
                                          //Configuring Connection Resiliency: https://docs.microsoft.com/en-us/ef/core/miscellaneous/connection-resiliency 
-                                         sqlOptions.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(30), errorNumbersToAdd: null);
+                                         sqlOptions.EnableRetryOnFailure(maxRetryCount: 5);
                                      });
 
                 // Changing default behavior when client evaluation occurs to throw. 
@@ -462,62 +197,112 @@ namespace Catalog.API
 }
 ```
 
-EF Core posee un sistema de migraciones. La utilidad de esto es que podemos llevar un control de los cambios hechos al modelo. También podemos actualizar la base de datos al nuevo modelo o restaurarla a un punto anterior.
+El objeto Configuration se recibe mediante inyección de dependencias en el constructor de la clase Startup.
 
-Cada que se haga un cambio en la base de datos, se debe ejecutar el siguiente comando dentro de la carpeta del proyecto. Después del 'add' se pone un mensaje corto describiendo el cambio hecho en la base de datos.
-
-```bash
-dotnet ef migrations add Initial-Migration --context Catalog.API.Infrastucture.CatalogContext -o Infrastructure/CatalogMigrations
-```
-
-Es recomendable que se agreguen cambios pequeños a las migraciones, para evitar migraciones demasiado grandes.
-
-Agregamos un ViewModel para definir la forma en la que se recibirán los registros en la consulta general de productos.
-
-#### ViewModel/PaginatedItemsViewModel.cs
-```csharp
-namespace Catalog.API.ViewModel
-{
-    using System.Collections.Generic;
-
-
-    public class PaginatedItemsViewModel<TEntity> where TEntity : class
-    {
-        public int PageIndex { get; private set; }
-
-        public int PageSize { get; private set; }
-
-        public long Count { get; private set; }
-
-        public IEnumerable<TEntity> Data { get; private set; }
-
-        public PaginatedItemsViewModel(int pageIndex, int pageSize, long count, IEnumerable<TEntity> data)
-        {
-            this.PageIndex = pageIndex;
-            this.PageSize = pageSize;
-            this.Count = count;
-            this.Data = data;
-        }
-    }
-}
-```
-
-Finalmente, creamos una clase para contener la configuración de algunos datos globales.
-
-#### CatalogSettings.cs
 ```csharp
 namespace Catalog.API
 {
-    public class CatalogSettings
+    public class Startup
     {
-        public string PicBaseUrl { get;set;}
+        public Startup(IConfiguration configuration)
+        {
+            Configuration = configuration;
+        }
 
-        public string EventBusConnection { get; set; }
+        public IConfiguration Configuration { get; }
     }
 }
 ```
 
+La configuración se carga de varias fuentes, que se obtienen en el siguiente orden (si se encuentra una configuración con el mismo nombre, se sobreescribe por la última fuente cargada).
+
+* Archivo appsettings.json
+* Archivo appsettings.{Environment}.json
+* ASP.NET Core Secrets
+* Variables de entorno
+* Argumentos de línea de comando
+
+```json
+{
+  "ConnectionString": "Server=127.0.0.1;Port=5432;Database=CapacitacionMicroservicios.CatalogDb;User Id=postgres;Password=pass;",
+  "PicBaseUrl": "http://localhost:5101/api/v1/catalog/items/[0]/pic/",
+  "Logging": {
+    "IncludeScopes": false,
+    "LogLevel": {
+      "Default": "Debug",
+      "System": "Information",
+      "Microsoft": "Information"
+    }
+  },
+  "AllowedHosts": "*"
+}
+```
+
+Cuando hagamos validaciones de reglas de negocio, generalmente definimos una clase de exepción que se lanza solamente cuando se intente romper una de estas reglas. A este tipo de exepción se le llama exepción de dominio, y en este microservicio su clase correspondiene tendrá el nombre de CatalogDomainException.
+
+```csharp
+using System;
+
+namespace Catalog.API.Infrastucture.Exceptions
+{
+    public class CatalogDomainException : Exception
+    {
+        public CatalogDomainException()
+        { }
+
+        public CatalogDomainException(string message)
+            : base(message)
+        { }
+
+        public CatalogDomainException(string message, Exception innerException)
+            : base(message, innerException)
+        { }
+    }
+}
+```
+
+## Ejercicio
+
+Agregue el Entity Framework Core al proyecto y cree las siguientes tres clases en el modelo:
+
+* CatalogType
+  * Id (int)
+  * Name (string)
+* CatalogBrand
+  * Id (int)
+  * Name (string)
+* CatalogItem
+  * Id (int)
+  * Name (string)
+  * Description (string)
+  * Price (decimal)
+  * AvailableStock (int)
+  * CatalogTypeId
+  * CatalogType
+  * CatalogBrandId
+  * CatalogBrand
+  * RemoveStock (Recibe una cantidad y la reduce de AvailableStock. Lanza CatalogDomainException si la cantidad a restar es menor o igual a cero)
+  * AddStock (Recibe una cantidad y la agrega a AvailableStock)
+
+Cree clases de configuración de entidades para las tres clases del modelo:
+
+* CatalogType
+  * Id: Autogenerar
+  * Name: Marcar como requerido y limitar a 100 caracteres
+* CatalogBrand
+  * Id: Autogenerar
+  * Name: Marcar como requerido y limitar a 100 caracteres
+* CatalogItem
+* Id (int)
+  * Cambiar nombre de tabla a 'Catalog'
+  * Id: Autogenerar
+  * Name: Marcar como requerido y limitar a 50 caracteres
+  * Price: Marcar como requerido
+  * CatalogTypeId: Configurar como relación uno-a-muchos y agregar foreign key
+  * CatalogBrandId: Configurar como relación uno-a-muchos y agregar foreign key
+
 ## Material extra
+
  * https://ardalis.com/how-to-add-a-nuget-package-using-dotnet-add
  * https://docs.microsoft.com/en-us/ef/core/miscellaneous/cli/dotnet
  * https://github.com/aspnet/EntityFramework.Docs/blob/master/entity-framework/core/miscellaneous/configuring-dbcontext.md

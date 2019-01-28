@@ -85,6 +85,10 @@ En VS Code, el nombre del branch en el que estamos trabajando aparece en la barr
 
 ![](img/part3/feature-vs-code.png)
 
+## Ejercicio
+
+Configure git y use VS Code para abrir un feature con el nombre 'catalog'.
+
 ## Material extra
  * https://nvie.com/posts/a-successful-git-branching-model/
  * https://github.com/vector-of-bool/vscode-gitflow

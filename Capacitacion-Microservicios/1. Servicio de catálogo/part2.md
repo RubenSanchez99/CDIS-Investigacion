@@ -36,3 +36,7 @@ Si accidentalmente eleigste No, ejecuta el siguiente comando en la paleta de com
 Esto genera los archivos necesarios para ejecutar el proyecto con VS Code.
 
 ![](img/part2/net-generate.png)
+
+## Ejercicio
+
+Cree el proyecto Catalog y use Visual Studio Code
