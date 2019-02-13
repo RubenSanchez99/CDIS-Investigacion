@@ -195,3 +195,17 @@ Registramos la saga en Startup.
             .SingleInstance();
         }
 ```
+
+## Ejercicio
+
+Complete la saga GracePeriod
+
+* Registre el evento OrderStockSent (correspondiente al evento OrderStockSentForOrderIntegrationEvent) en la saga. Este evento es emitido por el servicio Catalog cuando se saca producto del inventario para una orden.
+* Cree un método privado llamado ShipOrderAsync, el cual usa IAggregateRepository para cambiar el estátus de la Orden a Shipped.
+* Ejecute el método ShipOrderAsync cuando la saga esté en estatus Validated y se detecte el evento OrderStockSent.
+
+Si se realizaron los pasos correctamente en todos los ejercicios del módulo, se puede ejecutar el ciclo completo cuando se usa la petición UserCheckout en Postman. Revise la tabla EventEntity en la base de datos CapacitacionMicroservicios.OrderingDb para comprobar que se hayan generado los eventos correctamente.
+
+El servicio WebMVC contiene una interfaz hecha con ASP.NET Core MVC. Al terminar este ejercicio, se puede probar el proyecto completo usando los servicios del módulo 3. El servicio WebMVC se habilita en la ruta "http://localhost:5100".
+
+Si se intenta probar el servicio con una interfaz gráfica (como la interfaz Web) y el servicio Identity está levantado con Docker, es necesario configurar la variable ESHOP_EXTERNAL_DNS_NAME_OR_IP en el archivo .env para que el login funcione correctamente. Esta variable debe tener la dirección IP de la computadora donde se ejecuta el proyecto. Esto es necesario porque la interfaz no puede encontrar el archvivo discovery del servicio Identity sin la dirección externa del host.

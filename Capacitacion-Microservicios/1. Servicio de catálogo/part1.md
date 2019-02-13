@@ -9,9 +9,7 @@ Cosas que se verán en el módulo:
  * GitFlow
  * Docker
  * Docker Compose
- * SQL Server for Linux
- * NServiceBus
- * DBeaver
+ * PostgreSQL
 
 ## Material extra
  * [Microservice Architecture with ASP.NET Core](https://www.youtube.com/watch?v=RyHDWlIq6vI)

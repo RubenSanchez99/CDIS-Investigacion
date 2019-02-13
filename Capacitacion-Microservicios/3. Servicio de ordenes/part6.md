@@ -245,6 +245,6 @@ Implementar GetOrderByOrderNumberQuery.
 
 Implementar CancelOrderCommand
 
-* La clase Command tiene como propiedad el número de la orden
-* La clase CommandHandler ejecuta el método setCanceledStatus de Order
-* Retornar un ExecutionResult.Success()
+* La clase Command debe tener el Id de la orden como parámetro
+* La clase CommandHandler debe ejecutar el método SetCancelledStatus de Order y retornar su ExecutionResult
+* Enviar command en método CancelOrder de OrderController.

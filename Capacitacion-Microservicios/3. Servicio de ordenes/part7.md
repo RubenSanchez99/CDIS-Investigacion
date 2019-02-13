@@ -73,3 +73,19 @@ namespace Ordering.API.Application.IntegrationEvents.EventHandling
 }
 
 ```
+
+## Ejercicio
+
+Agregar OrderStatusChangedToStockConfirmedSubscriber. El método consulta el aggregate Order y su correspondiente Buyer mediante IAggregateRepository. Publica el evento de integración OrderStatusChangedToStockConfirmedIntegrationEvent.
+
+Los suscribers de todo el proyecto se pueden agregar mediante el assembly, usando el siguiente método en Startup.
+
+```csharp
+            var container = EventFlowOptions.New
+                .UseAutofacContainerBuilder(containerBuilder)
+                .UseConsoleLog()
+                .AddEvents(events)
+                .AddCommandHandlers(commandHandlers)
+                // Agregamos todos los suscribers que estén en el mismo proyecto que la clase Startup
+                .AddSubscribers(typeof(Startup).Assembly)
+```
