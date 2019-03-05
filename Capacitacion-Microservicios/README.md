@@ -14,15 +14,15 @@ El proyecto consiste en una tienda donde se pueden comprar diferentes productos.
 
 ## Módulos del curso
 
-### [Módulo 1: Servicio de catálogo]("1. Servicio de catálogo"/README.md)
+### [Módulo 1: Servicio de catálogo](1.%20Servicio%20de%20catálogo/README.md)
 
 En este módulo se crea un microservicio con funcionalidad CRUD. En el microservicio Catalog se pueden consultar, agregar, actualizar y eliminar productos. El propósito de este módulo es capacitar al desarrollador en la creación de proyectos de ASP.NET Core WebAPI y el uso de Entity Framework Core para la interacción con base de datos. También se ve el uso de Docker para crear contenedores que aislan la funcionalidad de un microservicio y permiten que se genere un componente configurable para entornos de desarrollo y pruebas. Se ve el uso de Git y el ciclo GitFlow para el versionamiento del desarrollo.
 
-### [Módulo 2: Servicio de carrito de compras]("2. Servicio de carrito de compras"/README.md)
+### [Módulo 2: Servicio de carrito de compras](2.%20Servicio%20de%20carrito%20de%20compras/README.md)
 
 En este módulo se empieza con un microservicio ya desarollado, el servicio Basket. El servicio Basket también tiene funcionalidad CRUD como el servicio Catalog, usando Redis como almacenamiento en vez de Entity Framework Core. El propósito del módulo es capacitar al desarrollador en la creación de funcionalidad extra como logs, autorización y validaciones del modelo. El módulo presenta dos patrones cuyo propósito es unir la funcionalidad de múltiples microservicios: el API Gateway y el Aggregator. Por último, se ve el uso de eventos de integración, el medio por el cual ocurre la comunicación entre microservicios.
 
-### [Módulo 3: Servicio de ordenes]("3. Servicio de ordenes"/README.md)
+### [Módulo 3: Servicio de ordenes](./3.%20Servicio%20de%20ordenes/README.md)
 
 En este módulo se crea un microservicio con un modelo de dominio siguiendo los patrones del Domain-Driven Design. Se usa el patrón CQRS para separar acciones dirigidas hacia los dos modelos que se crean para este microservicio: el modelo de lectura y el modelo de escritura. Se usa Event Sourcing para persistir el estado de las entidades del modelo de lectura mediante eventos de dominio. Se usa el concepto de sagas para realizar transacciones que involucran múltiples microservicios.
 
