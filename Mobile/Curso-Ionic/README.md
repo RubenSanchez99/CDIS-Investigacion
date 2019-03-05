@@ -6,7 +6,7 @@
 2. Instalar Angular CLI mediante el comando -> ```npm install -g @angular/cli```
 3. Instlar Ionic siguiendo las instrucciones -> <https://ionicframework.com/getting-started#cli>
 4. Instalar SDK de la plataforma a publicar -> <https://developer.android.com/studio>
-5. Intalar un editor de texto -> <https://code.visualstudio.com/>
+5. Instalar un editor de texto -> <https://code.visualstudio.com/>
 6. Opcionalmente, instalar extensiones de Visual Studio Code
     * TSLint
     * Prettier - Code formatter
