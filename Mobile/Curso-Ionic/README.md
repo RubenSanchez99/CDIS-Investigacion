@@ -4,7 +4,7 @@
 
 1. Instalar Node.js para tener acceso a npm -> <https://nodejs.org>
 2. Instalar Angular CLI mediante el comando -> ```npm install -g @angular/cli```
-3. Instlar Ionic siguiendo las instrucciones -> <https://ionicframework.com/getting-started#cli>
+3. Instalar Ionic siguiendo las instrucciones -> <https://ionicframework.com/getting-started#cli>
 4. Instalar SDK de la plataforma a publicar -> <https://developer.android.com/studio>
 5. Instalar un editor de texto -> <https://code.visualstudio.com/>
 6. Opcionalmente, instalar extensiones de Visual Studio Code
